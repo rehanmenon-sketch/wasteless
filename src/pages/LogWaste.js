@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { db } from '../firebaseClient';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 
 const REASONS = ['Expired / Spoiled', 'Leftover', 'Not Sold', 'Overproduction', 'Mistake', 'Other'];
 const ITEMS = ['Milk', 'Pastries', 'Eggs', 'Bread', 'Fruit', 'Prepared Food', 'Other'];
 
-export default function LogWaste({ userEmail, onLogged }) {
+function nowLocal() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+export default function LogWaste({ userEmail, staffName, onLogged }) {
   const [reason, setReason] = useState('');
   const [item, setItem] = useState('');
   const [qty, setQty] = useState(1);
+  const [logDate, setLogDate] = useState(nowLocal());
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,15 +25,17 @@ export default function LogWaste({ userEmail, onLogged }) {
     try {
       await addDoc(collection(db, 'waste_logs'), {
         email: userEmail,
+        staff_name: staffName,
         item,
         reason,
         quantity: qty,
-        logged_at: serverTimestamp(),
+        logged_at: Timestamp.fromDate(new Date(logDate)),
       });
       setStatus('success');
       setReason('');
       setItem('');
       setQty(1);
+      setLogDate(nowLocal());
       setTimeout(() => { setStatus(''); onLogged(); }, 1800);
     } catch (e) {
       setStatus('dberror');
@@ -37,7 +46,7 @@ export default function LogWaste({ userEmail, onLogged }) {
   return (
     <div style={styles.wrap}>
       <h1 style={styles.h1}>Log Food Waste</h1>
-      <p style={styles.sub}>Record a waste entry for today's shift</p>
+      <p style={styles.sub}>Logging as <strong>{staffName}</strong></p>
 
       <div style={styles.sectionLabel}>Why is this being thrown away?</div>
       <div style={styles.chips}>
@@ -67,6 +76,14 @@ export default function LogWaste({ userEmail, onLogged }) {
         <span style={styles.qtyUnit}>unit(s)</span>
       </div>
 
+      <div style={styles.sectionLabel}>Date & Time</div>
+      <input
+        style={styles.dateInput}
+        type="datetime-local"
+        value={logDate}
+        onChange={e => setLogDate(e.target.value)}
+      />
+
       <div style={styles.divider} />
       <button style={styles.submitBtn} onClick={handleSubmit} disabled={loading}>
         {loading ? 'Saving...' : 'Submit Entry'}
@@ -74,7 +91,7 @@ export default function LogWaste({ userEmail, onLogged }) {
 
       {status === 'success' && (
         <div style={styles.successBanner}>
-          Entry recorded - {qty}x {item} ({reason})
+          Entry recorded — {qty}x {item} ({reason})
         </div>
       )}
       {status === 'error' && (
@@ -111,6 +128,12 @@ const styles = {
   },
   qtyVal: { fontSize: 22, fontWeight: 500, minWidth: 28, textAlign: 'center' },
   qtyUnit: { fontSize: 13, color: '#888' },
+  dateInput: {
+    width: '100%', padding: '10px 12px', fontSize: 14,
+    border: '1px solid #e0e0da', borderRadius: 8,
+    outline: 'none', background: '#fff', color: '#1a1a1a',
+    boxSizing: 'border-box',
+  },
   divider: { height: 1, background: '#e8e8e4', margin: '20px 0' },
   submitBtn: {
     width: '100%', padding: 12, background: '#1D9E75',

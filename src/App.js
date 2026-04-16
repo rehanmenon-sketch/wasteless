@@ -33,7 +33,10 @@ export default function App() {
           <div style={styles.dot} />
           <span style={styles.logoText}>WasteLess</span>
         </div>
-        <button style={styles.signOutBtn} onClick={handleLogout}>Sign out</button>
+        <div style={styles.headerRight}>
+          <span style={styles.staffName}>{user.name}</span>
+          <button style={styles.signOutBtn} onClick={handleLogout}>Sign out</button>
+        </div>
       </div>
 
       <div style={styles.nav}>
@@ -50,8 +53,8 @@ export default function App() {
       </div>
 
       <div>
-        {tab === 'dashboard' && <Dashboard userEmail={user.email} />}
-        {tab === 'log' && <LogWaste userEmail={user.email} onLogged={() => setTab('dashboard')} />}
+        {tab === 'dashboard' && <Dashboard userEmail={user.email} staffName={user.name} />}
+        {tab === 'log' && <LogWaste userEmail={user.email} staffName={user.name} onLogged={() => setTab('dashboard')} />}
       </div>
     </div>
   );
@@ -64,8 +67,10 @@ const styles = {
     borderBottom: '1px solid #e8e8e4',
   },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 8 },
+  headerRight: { display: 'flex', alignItems: 'center', gap: 10 },
   dot: { width: 10, height: 10, borderRadius: '50%', background: '#1D9E75' },
   logoText: { fontSize: 15, fontWeight: 600, color: '#1a1a1a' },
+  staffName: { fontSize: 13, color: '#555', fontWeight: 500 },
   signOutBtn: {
     fontSize: 12, color: '#888', background: 'none',
     border: '1px solid #e0e0da', borderRadius: 6,
