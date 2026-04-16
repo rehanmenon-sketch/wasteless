@@ -22,40 +22,49 @@ const RECO = {
   Other: 'Review ordering patterns for frequently wasted items.'
 };
 
-const TIME_FILTERS = ['Today', 'This Week', 'All Time'];
+const FILTERS = ['Today', 'This Week', 'All Time'];
 
-function getTimestamp(l) {
-  return l.logged_at?.seconds ? new Date(l.logged_at.seconds * 1000) : null;
-}
-
-function getFilteredByTime(logs, filter) {
+function getFilteredLogs(logs, filter) {
   const now = new Date();
   if (filter === 'Today') {
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return logs.filter(l => { const t = getTimestamp(l); return t && t >= startOfDay; });
+    return logs.filter(l => {
+      const t = l.logged_at?.seconds ? new Date(l.logged_at.seconds * 1000) : null;
+      return t && t >= startOfDay;
+    });
   }
   if (filter === 'This Week') {
-    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-    return logs.filter(l => { const t = getTimestamp(l); return t && t >= startOfWeek; });
+    const day = now.getDay();
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
+    return logs.filter(l => {
+      const t = l.logged_at?.seconds ? new Date(l.logged_at.seconds * 1000) : null;
+      return t && t >= startOfWeek;
+    });
   }
   return logs;
 }
 
-export default function Dashboard({ userEmail, staffName }) {
+export default function Dashboard({ userEmail }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeFilter, setTimeFilter] = useState('Today');
-  const [staffFilter, setStaffFilter] = useState('All');
+  const [filter, setFilter] = useState('Today');
   const [resetting, setResetting] = useState(false);
 
   async function fetchLogs() {
     setLoading(true);
     try {
-      const q = query(collection(db, 'waste_logs'), where('email', '==', userEmail));
+      const q = query(
+        collection(db, 'waste_logs'),
+        where('email', '==', userEmail)
+      );
       const snapshot = await getDocs(q);
       const sorted = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (b.logged_at?.seconds ?? 0) - (a.logged_at?.seconds ?? 0));
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => {
+          const aTime = a.logged_at?.seconds ?? 0;
+          const bTime = b.logged_at?.seconds ?? 0;
+          return bTime - aTime;
+        });
       setLogs(sorted);
     } catch (e) {
       console.error('Error fetching logs:', e);
@@ -63,7 +72,9 @@ export default function Dashboard({ userEmail, staffName }) {
     setLoading(false);
   }
 
-  useEffect(() => { fetchLogs(); }, [userEmail]);
+  useEffect(() => {
+    fetchLogs();
+  }, [userEmail]);
 
   async function handleDelete(id) {
     try {
@@ -89,10 +100,10 @@ export default function Dashboard({ userEmail, staffName }) {
   }
 
   function handleEmailSummary() {
-    const subject = `WasteLess Summary — ${timeFilter} (${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })})`;
+    const subject = `WasteLess Summary — ${filter} (${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })})`;
     const lines = [
       `WasteLess Waste Summary`,
-      `Period: ${timeFilter}${staffFilter !== 'All' ? ` · Staff: ${staffFilter}` : ''}`,
+      `Period: ${filter}`,
       ``,
       `Total entries: ${filteredLogs.length}`,
       `Total units wasted: ${totalUnits}`,
@@ -107,13 +118,10 @@ export default function Dashboard({ userEmail, staffName }) {
       ``,
       `Weekly goal: ${goalPct}% of ${GOAL} unit limit used`,
     ];
-    const body = lines.join('\n');
-    window.location.href = `mailto:${userEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:${userEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n'))}`;
   }
 
-  const staffNames = ['All', ...Array.from(new Set(logs.map(l => l.staff_name).filter(Boolean)))];
-  const timeFiltered = getFilteredByTime(logs, timeFilter);
-  const filteredLogs = staffFilter === 'All' ? timeFiltered : timeFiltered.filter(l => l.staff_name === staffFilter);
+  const filteredLogs = getFilteredLogs(logs, filter);
 
   const itemCounts = Object.fromEntries(ITEMS_ORDER.map(i => [i, 0]));
   const reasonCounts = Object.fromEntries(REASONS_ORDER.map(r => [r, 0]));
@@ -150,23 +158,14 @@ export default function Dashboard({ userEmail, staffName }) {
       </div>
 
       <div style={styles.filterRow}>
-        {TIME_FILTERS.map(f => (
-          <button key={f}
-            style={{ ...styles.filterBtn, ...(timeFilter === f ? styles.filterBtnActive : {}) }}
-            onClick={() => setTimeFilter(f)}>{f}
+        {FILTERS.map(f => (
+          <button
+            key={f}
+            style={{ ...styles.filterBtn, ...(filter === f ? styles.filterBtnActive : {}) }}
+            onClick={() => setFilter(f)}>
+            {f}
           </button>
         ))}
-        {staffNames.length > 1 && (
-          <>
-            <div style={styles.filterDivider} />
-            {staffNames.map(n => (
-              <button key={n}
-                style={{ ...styles.filterBtn, ...(staffFilter === n ? styles.filterBtnActive : {}) }}
-                onClick={() => setStaffFilter(n)}>{n === 'All' ? 'All Staff' : n}
-              </button>
-            ))}
-          </>
-        )}
       </div>
 
       <div style={styles.statGrid}>
@@ -239,27 +238,25 @@ export default function Dashboard({ userEmail, staffName }) {
           <div style={{ ...styles.goalFill, width: goalPct + '%', background: goalPct >= 100 ? '#E24B4A' : '#1D9E75' }} />
         </div>
         <div style={styles.goalNote}>
-          Target: keep total waste under {GOAL} units this week — currently at {totalUnits}
+          Target: keep total waste under {GOAL} units this week - currently at {totalUnits}
         </div>
       </div>
 
       <div style={styles.logList}>
         <div style={styles.logListTitle}>Recent entries</div>
         {filteredLogs.length === 0
-          ? <div style={styles.emptyState}>No entries for this period.</div>
-          : filteredLogs.slice(0, 8).map(l => {
-            const t = getTimestamp(l);
-            return (
-              <div key={l.id} style={styles.logItem}>
-                <span style={styles.logLeft}>{l.quantity}x {l.item}</span>
-                <span style={styles.logMid}>{l.staff_name || '—'}</span>
-                <span style={styles.logRight}>
-                  {l.reason} · {t ? t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}
-                </span>
-                <button style={styles.deleteBtn} onClick={() => handleDelete(l.id)}>Delete</button>
-              </div>
-            );
-          })
+          ? <div style={styles.emptyState}>No entries for this period. Switch to Log Food Waste to get started.</div>
+          : filteredLogs.slice(0, 8).map(l => (
+            <div key={l.id} style={styles.logItem}>
+              <span style={styles.logLeft}>{l.quantity}x {l.item}</span>
+              <span style={styles.logRight}>
+                {l.reason} · {l.logged_at?.toDate
+                  ? l.logged_at.toDate().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                  : ''}
+              </span>
+              <button style={styles.deleteBtn} onClick={() => handleDelete(l.id)}>Delete</button>
+            </div>
+          ))
         }
       </div>
     </div>
@@ -282,14 +279,13 @@ const styles = {
     border: '1px solid #D85A30', borderRadius: 6,
     padding: '5px 11px', cursor: 'pointer',
   },
-  filterRow: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14, marginTop: 12, alignItems: 'center' },
+  filterRow: { display: 'flex', gap: 6, marginBottom: 14, marginTop: 12 },
   filterBtn: {
     fontSize: 12, padding: '5px 13px', borderRadius: 20,
     border: '1px solid #d0d0ca', background: '#fff',
     color: '#888', cursor: 'pointer', fontWeight: 500,
   },
   filterBtnActive: { background: '#E1F5EE', borderColor: '#1D9E75', color: '#0F6E56' },
-  filterDivider: { width: 1, height: 18, background: '#e0e0da', margin: '0 4px' },
   statGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 },
   statCard: { background: '#f5f5f0', borderRadius: 8, padding: '14px 16px' },
   statLabel: { fontSize: 11, color: '#888', marginBottom: 4 },
@@ -322,10 +318,9 @@ const styles = {
   goalNote: { fontSize: 11, color: '#888', marginTop: 5 },
   logList: { marginTop: 8 },
   logListTitle: { fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 },
-  logItem: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #e8e8e4', fontSize: 13 },
+  logItem: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e8e8e4', fontSize: 13 },
   logLeft: { fontWeight: 500, flex: 1 },
-  logMid: { fontSize: 12, color: '#1D9E75', fontWeight: 500, minWidth: 60 },
-  logRight: { color: '#888', marginRight: 4 },
+  logRight: { color: '#888', marginRight: 12 },
   deleteBtn: {
     fontSize: 11, color: '#993C1D', background: 'none',
     border: '1px solid #D85A30', borderRadius: 5,
