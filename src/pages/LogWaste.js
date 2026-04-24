@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { db } from '../firebaseClient';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { loadItems } from './Settings';
 
 const REASONS = ['Expired / Spoiled', 'Leftover', 'Not Sold', 'Overproduction', 'Mistake', 'Other'];
-const ITEMS = ['Milk', 'Pastries', 'Eggs', 'Bread', 'Fruit', 'Prepared Food', 'Other'];
 
 export default function LogWaste({ userEmail, onLogged }) {
   const [reason, setReason] = useState('');
@@ -11,6 +11,7 @@ export default function LogWaste({ userEmail, onLogged }) {
   const [qty, setQty] = useState(1);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const ITEMS = loadItems().map(i => i.name);
 
   async function handleSubmit() {
     if (!reason || !item) { setStatus('error'); return; }

@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebaseClient';
 import { collection, query, where, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
-import { loadPrices } from './Settings';
+import { loadItems, loadPrices } from './Settings';
 
-const ITEMS_ORDER = ['Milk', 'Pastries', 'Eggs', 'Bread', 'Fruit', 'Prepared Food', 'Other'];
 const REASONS_ORDER = ['Not Sold', 'Expired / Spoiled', 'Leftover', 'Overproduction', 'Mistake', 'Other'];
-const ITEM_COLORS = {
+const DEFAULT_ITEM_COLORS = {
   Milk: '#378ADD', Pastries: '#1D9E75', Eggs: '#FAC775',
   Bread: '#F0997B', Fruit: '#9FE1CB', 'Prepared Food': '#7F77DD', Other: '#B4B2A9'
 };
+const FALLBACK_PALETTE = ['#7F77DD', '#5DCAA5', '#F0997B', '#FAC775', '#378ADD', '#9FE1CB', '#D85A30', '#0F6E56'];
+function getItemColor(name, idx) {
+  return DEFAULT_ITEM_COLORS[name] || FALLBACK_PALETTE[idx % FALLBACK_PALETTE.length];
+}
 const REASON_COLORS = {
   'Not Sold': '#1D9E75', 'Expired / Spoiled': '#5DCAA5', Leftover: '#FAC775',
   Overproduction: '#F0997B', Mistake: '#D3D1C7', Other: '#B4B2A9'
@@ -51,6 +54,7 @@ export default function Dashboard({ userEmail }) {
   const [filter, setFilter] = useState('Today');
   const [resetting, setResetting] = useState(false);
   const ITEM_PRICES = loadPrices();
+  const configuredItems = loadItems().map(i => i.name);
 
   async function fetchLogs() {
     setLoading(true);
@@ -126,6 +130,12 @@ export default function Dashboard({ userEmail }) {
 
   const filteredLogs = getFilteredLogs(logs, filter);
 
+  const itemsFromLogs = Array.from(new Set(filteredLogs.map(l => l.item).filter(Boolean)));
+  const ITEMS_ORDER = [
+    ...configuredItems,
+    ...itemsFromLogs.filter(i => !configuredItems.includes(i)),
+  ];
+
   const itemCounts = Object.fromEntries(ITEMS_ORDER.map(i => [i, 0]));
   const reasonCounts = Object.fromEntries(REASONS_ORDER.map(r => [r, 0]));
   let totalUnits = 0;
@@ -137,7 +147,9 @@ export default function Dashboard({ userEmail }) {
     totalCost += (ITEM_PRICES[l.item] || 0) * l.quantity;
   });
 
-  const topItem = ITEMS_ORDER.reduce((a, b) => itemCounts[a] >= itemCounts[b] ? a : b);
+  const topItem = ITEMS_ORDER.length > 0
+    ? ITEMS_ORDER.reduce((a, b) => itemCounts[a] >= itemCounts[b] ? a : b)
+    : '';
   const topReason = REASONS_ORDER.reduce((a, b) => reasonCounts[a] >= reasonCounts[b] ? a : b);
   const maxItem = Math.max(1, ...ITEMS_ORDER.map(i => itemCounts[i]));
   const GOAL = 120;
@@ -208,14 +220,16 @@ export default function Dashboard({ userEmail }) {
       <div style={styles.dashGrid}>
         <div style={styles.card}>
           <div style={styles.chartTitle}>Waste by item</div>
-          {ITEMS_ORDER.map(item => {
+          {ITEMS_ORDER.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#888' }}>No items configured. Add some in Settings.</div>
+          ) : ITEMS_ORDER.map((item, idx) => {
             const c = itemCounts[item] || 0;
             const w = Math.round(c / maxItem * 100);
             return (
               <div key={item} style={styles.barRow}>
                 <span style={styles.barLabel}>{item}</span>
                 <div style={styles.barTrack}>
-                  <div style={{ ...styles.barFill, width: w + '%', background: ITEM_COLORS[item] }} />
+                  <div style={{ ...styles.barFill, width: w + '%', background: getItemColor(item, idx) }} />
                 </div>
                 <span style={styles.barCount}>{c}</span>
               </div>
