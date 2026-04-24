@@ -4,6 +4,15 @@ import { collection, query, where, getDocs, deleteDoc, doc, writeBatch } from 'f
 
 const ITEMS_ORDER = ['Milk', 'Pastries', 'Eggs', 'Bread', 'Fruit', 'Prepared Food', 'Other'];
 const REASONS_ORDER = ['Not Sold', 'Expired / Spoiled', 'Leftover', 'Overproduction', 'Mistake', 'Other'];
+const ITEM_PRICES = {
+  Milk: 6.00,
+  Pastries: 3.50,
+  Eggs: 0.40,
+  Bread: 4.50,
+  Fruit: 1.25,
+  'Prepared Food': 8.00,
+  Other: 5.00,
+};
 const ITEM_COLORS = {
   Milk: '#378ADD', Pastries: '#1D9E75', Eggs: '#FAC775',
   Bread: '#F0997B', Fruit: '#9FE1CB', 'Prepared Food': '#7F77DD', Other: '#B4B2A9'
@@ -107,6 +116,7 @@ export default function Dashboard({ userEmail }) {
       ``,
       `Total entries: ${filteredLogs.length}`,
       `Total units wasted: ${totalUnits}`,
+      `Estimated money wasted: $${totalCost.toFixed(2)}`,
       `Most wasted item: ${filteredLogs.length > 0 ? `${topItem} (${itemCounts[topItem]} units)` : 'N/A'}`,
       `Top reason: ${filteredLogs.length > 0 ? topReason : 'N/A'}`,
       ``,
@@ -126,10 +136,12 @@ export default function Dashboard({ userEmail }) {
   const itemCounts = Object.fromEntries(ITEMS_ORDER.map(i => [i, 0]));
   const reasonCounts = Object.fromEntries(REASONS_ORDER.map(r => [r, 0]));
   let totalUnits = 0;
+  let totalCost = 0;
   filteredLogs.forEach(l => {
     if (itemCounts[l.item] !== undefined) itemCounts[l.item] += l.quantity;
     if (reasonCounts[l.reason] !== undefined) reasonCounts[l.reason] += l.quantity;
     totalUnits += l.quantity;
+    totalCost += (ITEM_PRICES[l.item] || 0) * l.quantity;
   });
 
   const topItem = ITEMS_ORDER.reduce((a, b) => itemCounts[a] >= itemCounts[b] ? a : b);
@@ -173,6 +185,11 @@ export default function Dashboard({ userEmail }) {
           <div style={styles.statLabel}>Waste logs</div>
           <div style={styles.statVal}>{filteredLogs.length}</div>
           <div style={styles.statSub}>entries</div>
+        </div>
+        <div style={{ ...styles.statCard, background: '#FAECE7' }}>
+          <div style={{ ...styles.statLabel, color: '#993C1D' }}>Money wasted</div>
+          <div style={{ ...styles.statVal, color: '#993C1D' }}>${totalCost.toFixed(2)}</div>
+          <div style={{ ...styles.statSub, color: '#993C1D' }}>estimated</div>
         </div>
         <div style={styles.statCard}>
           <div style={styles.statLabel}>Most wasted item</div>
@@ -286,7 +303,7 @@ const styles = {
     color: '#888', cursor: 'pointer', fontWeight: 500,
   },
   filterBtnActive: { background: '#E1F5EE', borderColor: '#1D9E75', color: '#0F6E56' },
-  statGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 },
+  statGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 },
   statCard: { background: '#f5f5f0', borderRadius: 8, padding: '14px 16px' },
   statLabel: { fontSize: 11, color: '#888', marginBottom: 4 },
   statVal: { fontSize: 22, fontWeight: 500 },
