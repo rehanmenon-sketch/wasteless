@@ -1,18 +1,10 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebaseClient';
 import { collection, query, where, getDocs, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { loadPrices } from './Settings';
 
 const ITEMS_ORDER = ['Milk', 'Pastries', 'Eggs', 'Bread', 'Fruit', 'Prepared Food', 'Other'];
 const REASONS_ORDER = ['Not Sold', 'Expired / Spoiled', 'Leftover', 'Overproduction', 'Mistake', 'Other'];
-const ITEM_PRICES = {
-  Milk: 6.00,
-  Pastries: 3.50,
-  Eggs: 0.40,
-  Bread: 4.50,
-  Fruit: 1.25,
-  'Prepared Food': 8.00,
-  Other: 5.00,
-};
 const ITEM_COLORS = {
   Milk: '#378ADD', Pastries: '#1D9E75', Eggs: '#FAC775',
   Bread: '#F0997B', Fruit: '#9FE1CB', 'Prepared Food': '#7F77DD', Other: '#B4B2A9'
@@ -58,6 +50,7 @@ export default function Dashboard({ userEmail }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('Today');
   const [resetting, setResetting] = useState(false);
+  const ITEM_PRICES = loadPrices();
 
   async function fetchLogs() {
     setLoading(true);

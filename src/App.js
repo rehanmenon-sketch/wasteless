@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import LogWaste from './pages/LogWaste';
+import Settings from './pages/Settings';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -47,11 +48,17 @@ export default function App() {
           onClick={() => setTab('log')}>
           Log Food Waste
         </button>
+        <button
+          style={{ ...styles.navBtn, ...(tab === 'settings' ? styles.navBtnActive : {}) }}
+          onClick={() => setTab('settings')}>
+          Settings
+        </button>
       </div>
 
       <div>
         {tab === 'dashboard' && <Dashboard userEmail={user.email} />}
         {tab === 'log' && <LogWaste userEmail={user.email} onLogged={() => setTab('dashboard')} />}
+        {tab === 'settings' && <Settings />}
       </div>
     </div>
   );
